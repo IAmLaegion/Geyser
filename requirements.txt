@@ -1,0 +1,3 @@
+PySide6-Essentials==6.8.1
+comtypes==1.4.8
+psutil==6.1.0

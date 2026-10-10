@@ -1,0 +1,4 @@
+-r requirements.txt
+pyinstaller==6.11.1
+pillow==11.0.0
+pyflakes==3.2.0
