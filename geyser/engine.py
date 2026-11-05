@@ -10,7 +10,7 @@ import psutil
 from PySide6.QtCore import QThread, Signal
 
 from . import win32
-from .config import KIND_DOWNLOAD
+from .config import KIND_DOWNLOAD, parse_filters
 # Imported here, on the GUI thread, on purpose: importing comtypes initialises COM on the importing
 # thread, and the scanner thread needs to set up its own multithreaded apartment instead.
 from .uia import Automation
@@ -58,7 +58,7 @@ class TargetWindow:
     status_hwnds: list
 
 
-# Nolvus shows the mod name in a label on the popup: "Manual download [Vigilant - High Res Textures]".
+# Nolvus (and Yugen, which copies it) shows the mod name in a label on the popup: "Manual download [Vigilant - High Res Textures]".
 LABEL_RE = re.compile(r"^Manual download \[(.+)\]\s*$")
 # Nolvus status strip text, e.g. "Download : 2.4MB/s".
 SPEED_RE = re.compile(r"Download\s*:\s*([\d.,]+)\s*([KMG])B/s", re.I)
@@ -68,11 +68,17 @@ STATUS_EVERY = 2.0
 COOLDOWN_FORGET = 600.0
 
 
-def _matching_processes(filt, own_pid):
+def _name_matches(name, filters):
+    """True when any filter is part of the process name. No filters matches everything."""
+    name = name.lower()
+    return not filters or any(f in name for f in filters)
+
+
+def _matching_processes(filters, own_pid):
     found = {}
     for proc in psutil.process_iter(["name"]):
         name = proc.info.get("name") or ""
-        if filt in name.lower() and proc.pid != own_pid:
+        if proc.pid != own_pid and _name_matches(name, filters):
             found[proc.pid] = name
     return found
 
@@ -192,8 +198,8 @@ class Engine(QThread):
             s = self._current_settings()
             now = time.monotonic()
 
-            filt = s.process_filter.strip().lower()
-            procs = _matching_processes(filt, own_pid) if filt else None
+            filters = parse_filters(s.process_filter)
+            procs = _matching_processes(filters, own_pid) if filters else None
             pids = set(procs) if procs is not None else None
             running = pids is None or bool(pids)
 
@@ -221,7 +227,7 @@ class Engine(QThread):
                     last_activity = now
                     if idle:
                         idle = False
-                        self._log("info", f"Nolvus is downloading again ({speed:.1f} MB/s), resuming")
+                        self._log("info", f"The installer is downloading again ({speed:.1f} MB/s), resuming")
 
             scan_ms = None
             texts = [r.text.strip() for r in s.rules if r.enabled and r.text.strip()]
@@ -230,7 +236,8 @@ class Engine(QThread):
             if self._paused:
                 state = (State.PAUSED, "Paused. Popups are left alone until you resume.")
             elif s.auto_arm and not running:
-                state = (State.WAITING, f"Waiting for a process with \"{s.process_filter.strip()}\" in its name.")
+                wanted = " or ".join(f'"{f}"' for f in filters)
+                state = (State.WAITING, f"Waiting for an installer: a process with {wanted} in its name.")
             elif idle:
                 state = (State.IDLE, self._idle_reason(s))
             elif not texts:
@@ -277,7 +284,7 @@ class Engine(QThread):
             self._wake.clear()
 
     def _idle_reason(self, s):
-        wake = "when Nolvus downloads or restarts, or when you resume" if s.nolvus_activity else "when Nolvus restarts or you resume"
+        wake = "when the installer downloads or restarts, or when you resume" if s.nolvus_activity else "when the installer restarts or you resume"
         return f"Nothing happened for {_fmt_minutes(s.idle_timeout_min)}, so scanning stopped. It picks up again {wake}."
 
     def _read_speed(self, auto, windows):

@@ -129,7 +129,11 @@ rules = win.pages["rules"]
 win.show_page("rules")
 rules.process.setText("claude")
 rules.process.editingFinished.emit()
-check("process filter saves", saved()["process_filter"] == "claude")
+check("process filter saves", saved()["process_filter"] == ["claude"])
+rules.process.setText("Claude, nolvus,, claude")
+rules.process.editingFinished.emit()
+check("process filter list saves", saved()["process_filter"] == ["claude", "nolvus"])
+check("process filter field tidied", rules.process.text() == "claude, nolvus")
 click([b for b in rules.findChildren(type(dash.primary)) if b.text() == "Add button"][0])
 check("Add button adds a row", len(rules._rows) == 2)
 new_edit = rules._rows[-1][1]

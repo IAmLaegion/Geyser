@@ -36,7 +36,7 @@ STATE_COLORS = {
 STATE_TITLES = {
     "starting": "Starting",
     "scanning": "Scanning",
-    "waiting": "Waiting for Nolvus",
+    "waiting": "Waiting for an installer",
     "paused": "Paused",
     "idle": "Idle",
     "error": "Scanner stopped",

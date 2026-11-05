@@ -9,6 +9,8 @@ KINDS = (KIND_DOWNLOAD, KIND_FOLLOWUP)
 
 SETTINGS_FILE = "settings.json"
 
+DEFAULT_PROCESS_FILTERS = ("nolvus", "yugen")
+
 
 @dataclass
 class Rule:
@@ -27,7 +29,7 @@ def default_rules():
 
 @dataclass
 class Settings:
-    process_filter: str = "nolvus"
+    process_filter: list = field(default_factory=lambda: list(DEFAULT_PROCESS_FILTERS))
     window_filter: str = ""
     rules: list = field(default_factory=default_rules)
 
@@ -61,7 +63,20 @@ def _coerce(value, default):
         return float(value)
     if isinstance(default, str):
         return str(value)
+    if isinstance(default, list) and not isinstance(value, list):
+        raise TypeError(f"expected a list, got {type(value).__name__}")
     return value
+
+
+def parse_filters(value):
+    """Turn "a, b" or ["a", "b"] into a clean list of lowercase name fragments."""
+    items = value.split(",") if isinstance(value, str) else value
+    out = []
+    for item in items:
+        text = str(item).strip().lower()
+        if text and text not in out:
+            out.append(text)
+    return out
 
 
 def _parse_rules(raw):
@@ -91,6 +106,12 @@ def load_settings() -> Settings:
         try:
             if key == "rules":
                 settings.rules = _parse_rules(value)
+            elif key == "process_filter":
+                filters = parse_filters(value)
+                # Settings from before Yugen support stored one string; an empty one still means any process.
+                if isinstance(value, str) and filters and "yugen" not in filters:
+                    filters.append("yugen")
+                settings.process_filter = filters
             else:
                 setattr(settings, key, _coerce(value, getattr(settings, key)))
         except (TypeError, ValueError, AttributeError):

@@ -2,7 +2,7 @@
 
 # Geyser
 
-Geyser clicks **Slow download** on Nolvus's manual download popups, so you can install a Nolvus modlist with a free Nexus Mods account without sitting there clicking every one.
+Geyser clicks **Slow download** on the manual download popups of Nolvus and Yugen, so you can install a modlist with a free Nexus Mods account without sitting there clicking every one.
 
 ![Geyser dashboard, shown with sample data](docs/dashboard.png)
 
@@ -10,9 +10,9 @@ Geyser clicks **Slow download** on Nolvus's manual download popups, so you can i
 
 ## What it does
 
-- **Clicks the popups for you.** When Nolvus opens a "Manual download" popup, Geyser presses **Slow download**. For files over 500MB, Nexus asks one more question, and Geyser answers **Standard download**.
-- **Stays out of your way.** Clicks go through Windows UI Automation (the accessibility API), so your mouse never moves. While Geyser clicks, the popup isn't allowed to take focus, so a game or browser you're using stays in front. You can still click into Nolvus yourself whenever you like.
-- **Runs itself.** Geyser starts scanning when Nolvus opens and waits when it's closed. If nothing happens for 5 minutes (you can change this) it goes idle. While Nolvus is downloading, the timer doesn't run, and Geyser wakes up again when Nolvus starts the next download.
+- **Clicks the popups for you.** When the installer opens a "Manual download" popup, Geyser presses **Slow download**. For files over 500MB, Nexus asks one more question, and Geyser answers **Standard download**.
+- **Stays out of your way.** Clicks go through Windows UI Automation (the accessibility API), so your mouse never moves. While Geyser clicks, the popup isn't allowed to take focus, so a game or browser you're using stays in front. You can still click into the installer yourself whenever you like.
+- **Runs itself.** Geyser starts scanning when an installer opens and waits when it's closed. If nothing happens for 5 minutes (you can change this) it goes idle. While the installer is downloading, the timer doesn't run, and Geyser wakes up again when it starts the next download.
 - **Keeps a history.** Every download is logged with the mod name and time, searchable and exportable to CSV.
 - **Lives in the tray.** It has a tray icon, a global pause/resume hotkey (Ctrl+Alt+G by default), optional Windows notifications and an option to start with Windows.
 
@@ -21,7 +21,7 @@ It doesn't bypass anything. Downloads still go through Nexus at free-account spe
 ## Requirements
 
 - Windows 10 or 11
-- [Nolvus Dashboard](https://www.nolvus.net/)
+- [Nolvus Dashboard](https://www.nolvus.net/) or the Yugen installer
 
 Geyser isn't affiliated with Nolvus or Nexus Mods.
 
@@ -49,13 +49,13 @@ The first launch of the exe can take around 15 seconds while Windows Defender sc
 
 ## Using it
 
-Start Geyser, then start your Nolvus install. The dashboard shows what Geyser is doing and why:
+Start Geyser, then start your Nolvus or Yugen install. The dashboard shows what Geyser is doing and why:
 
 | State | Meaning |
 |---|---|
-| Scanning | Nolvus is running and Geyser is watching for popups. |
-| Waiting for Nolvus | Nolvus isn't running. Geyser starts scanning as soon as it is. |
-| Idle | Nothing happened for the auto-stop time. Geyser picks up again when Nolvus downloads or restarts, or when you press Resume. |
+| Scanning | An installer is running and Geyser is watching for popups. |
+| Waiting for an installer | Neither installer is running. Geyser starts scanning as soon as one is. |
+| Idle | Nothing happened for the auto-stop time. Geyser picks up again when the installer downloads or restarts, or when you press Resume. |
 | Paused | You paused it. Popups are left alone until you resume. |
 
 Closing the window keeps Geyser running in the tray. Right-click the tray icon to quit.
@@ -64,17 +64,17 @@ Closing the window keeps Geyser running in the tray. Right-click the tray icon t
 
 ![Rules page](docs/rules.png)
 
-The Rules page sets where Geyser looks (by default, windows owned by a process with "nolvus" in its name) and which buttons it clicks. Button labels must match exactly, though capitals don't matter. A button marked **Starts a download** adds a row to History. One marked **Follow-up step** is a confirmation that comes after a download, like the large-file prompt, and is added to that row.
+The Rules page sets where Geyser looks (by default, windows owned by a process with "nolvus" or "yugen" in its name; separate names with commas) and which buttons it clicks. Button labels must match exactly, though capitals don't matter. A button marked **Starts a download** adds a row to History. One marked **Follow-up step** is a confirmation that comes after a download, like the large-file prompt, and is added to that row.
 
 If Nexus renames a button, you can add the new label here without waiting for an update.
 
 ## How it works
 
-Nolvus shows each popup as a WinForms window with an embedded Chromium browser (CefSharp). That browser exposes the Nexus page's buttons to Windows UI Automation, so Geyser can find **Slow download** by its name and invoke it directly, the way a screen reader would. It doesn't look at pixels, so screen size, scaling and window position don't matter, and the popup can sit behind other windows.
+Nolvus shows each popup as a WinForms window with an embedded Chromium browser (CefSharp). Yugen (`Yugen.Installer.exe`) copies that design with WebView2, using the same label and status bar text, so Geyser handles both the same way. That browser exposes the Nexus page's buttons to Windows UI Automation, so Geyser can find **Slow download** by its name and invoke it directly, the way a screen reader would. It doesn't look at pixels, so screen size, scaling and window position don't matter, and the popup can sit behind other windows.
 
 To stop the click from pulling the popup to the front, Geyser briefly marks the popup window `WS_EX_NOACTIVATE` while it clicks, then removes the mark again.
 
-The mod name comes from the popup's "Manual download [mod name]" label, and the download speed comes from Nolvus's own status bar.
+The mod name comes from the popup's "Manual download [mod name]" label, and the download speed comes from the installer's own status bar.
 
 ## Your data
 

@@ -254,7 +254,7 @@ class FlowLayout(QLayout):
 
 
 class Chip(QFrame):
-    """Small fact about the target, e.g. its process or Nolvus's download speed. Hidden when there's nothing to say."""
+    """Small fact about the target, e.g. its process or the installer's download speed. Hidden when there's nothing to say."""
 
     def __init__(self, glyph, tooltip=""):
         super().__init__()

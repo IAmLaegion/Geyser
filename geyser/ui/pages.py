@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..config import KIND_DOWNLOAD, KIND_FOLLOWUP, Rule, default_rules
+from ..config import KIND_DOWNLOAD, KIND_FOLLOWUP, Rule, default_rules, parse_filters
 from ..engine import State
 from ..paths import data_dir
 from . import theme
@@ -157,8 +157,8 @@ class DashboardPage(QWidget):
         policy.setHeightForWidth(True)
         chip_box.setSizePolicy(policy)
         self.chip_process = Chip(Glyph.PROCESS, "Process Geyser is watching")
-        self.chip_popup = Chip(Glyph.WINDOW, "A Nolvus manual download popup is open")
-        self.chip_speed = Chip(Glyph.DOWNLOAD, "Nolvus's own download speed, read from its status bar")
+        self.chip_popup = Chip(Glyph.WINDOW, "A manual download popup is open")
+        self.chip_speed = Chip(Glyph.DOWNLOAD, "The installer's own download speed, read from its status bar")
         self.chip_idle = Chip(Glyph.TIMER, "Scanning stops when this reaches zero with nothing to click")
         for chip in (self.chip_process, self.chip_popup, self.chip_speed, self.chip_idle):
             chips.addWidget(chip)
@@ -242,7 +242,7 @@ class DashboardPage(QWidget):
         v.addStretch(1)
         v.addWidget(DormantPlume(52), 0, Qt.AlignHCenter)
         msg = label(
-            "Nothing downloaded yet. When a Nolvus manual download popup opens, "
+            "Nothing downloaded yet. When a manual download popup opens, "
             "Geyser clicks Slow download and the mod appears here.",
             "muted",
             wrap=True,
@@ -275,7 +275,7 @@ class DashboardPage(QWidget):
         else:
             self.chip_process.set_text("")
         self.chip_popup.set_text(f"Popup: {snap.pending[0]}" if snap.pending else "")
-        self.chip_speed.set_text(f"Nolvus {snap.speed_mbps:.1f} MB/s" if snap.speed_mbps is not None else "")
+        self.chip_speed.set_text(f"Installer {snap.speed_mbps:.1f} MB/s" if snap.speed_mbps is not None else "")
         self.chip_idle.set_text(
             f"Auto-stop in {countdown(snap.idle_remaining)}" if snap.idle_remaining is not None else ""
         )
@@ -479,7 +479,7 @@ class RulesPage(QWidget):
         lay = page_layout(page, "Rules", "Which windows Geyser looks in, and which buttons it clicks there.")
 
         where, wl = section("Where to look")
-        self.process = QLineEdit(ctrl.settings.process_filter)
+        self.process = QLineEdit(", ".join(ctrl.settings.process_filter))
         self.process.setPlaceholderText("Any process")
         self.process.setFixedWidth(240)
         self.title = QLineEdit(ctrl.settings.window_filter)
@@ -488,17 +488,18 @@ class RulesPage(QWidget):
         add_rows(wl, [
             SettingRow(
                 "Process name contains",
-                "Only windows owned by a matching process are checked. Nolvus runs as NolvusDashBoard.exe. "
+                "Comma-separated. Only windows owned by a process whose name contains one of these are checked. "
+                "Nolvus runs as NolvusDashBoard.exe and Yugen as Yugen.Installer.exe. "
                 "Leave it empty to check every window, which is slower and can click matching buttons in other apps.",
                 self.process,
             ),
             SettingRow(
                 "Window title contains",
-                "Optional extra filter. Nolvus popups are titled \"Form\", so this is usually left empty.",
+                "Optional extra filter. Installer popups are titled \"Form\", so this is usually left empty.",
                 self.title,
             ),
         ])
-        self.process.editingFinished.connect(lambda: ctrl.set_setting("process_filter", self.process.text().strip()))
+        self.process.editingFinished.connect(self._save_process)
         self.title.editingFinished.connect(lambda: ctrl.set_setting("window_filter", self.title.text().strip()))
         lay.addWidget(where)
 
@@ -552,6 +553,11 @@ class RulesPage(QWidget):
         outer.addWidget(scrolling(page))
         self._rows = []
         self.load(ctrl.settings.rules)
+
+    def _save_process(self):
+        filters = parse_filters(self.process.text())
+        self.process.setText(", ".join(filters))
+        self.ctrl.set_setting("process_filter", filters)
 
     def load(self, rules):
         self.table.setRowCount(0)
@@ -654,7 +660,7 @@ class SettingsPage(QWidget):
         box, sl = section("Scanning")
         add_rows(sl, [
             SettingRow(
-                "Start when Nolvus opens",
+                "Start when an installer opens",
                 "Scan only while a matching process is running, and wake up when it starts. Off means scan all the time.",
                 self._toggle("auto_arm"),
             ),
@@ -664,8 +670,8 @@ class SettingsPage(QWidget):
                 self._spin("idle_timeout_min", 0, 240, " min", special="Never"),
             ),
             SettingRow(
-                "Count Nolvus downloads as activity",
-                "While Nolvus reports a download speed above zero, the auto-stop timer doesn't run, "
+                "Count installer downloads as activity",
+                "While the installer reports a download speed above zero, the auto-stop timer doesn't run, "
                 "and an idle Geyser wakes back up. Big mods can take longer than the timeout to download.",
                 self._toggle("nolvus_activity"),
             ),
@@ -687,7 +693,7 @@ class SettingsPage(QWidget):
             SettingRow(
                 "Keep popups in the background",
                 "While Geyser clicks, the popup can't take focus, so whatever you're doing stays in front. "
-                "You can still click into Nolvus yourself at any time.",
+                "You can still click into the installer yourself at any time.",
                 self._toggle("keep_background"),
             ),
         ])
@@ -709,7 +715,7 @@ class SettingsPage(QWidget):
             SettingRow("When a download starts", "A Windows notification with the mod name.", self._toggle("notify_download")),
             SettingRow(
                 "When Geyser changes state",
-                "For example when it goes idle, or picks up again after Nolvus opens.",
+                "For example when it goes idle, or picks up again after an installer opens.",
                 self._toggle("notify_state"),
             ),
         ])

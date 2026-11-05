@@ -14,9 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from PySide6.QtCore import QCoreApplication, QTimer  # noqa: E402
 
 # Import order mirrors the app: engine first, which pulls in comtypes on the main thread.
-from geyser.engine import Engine  # noqa: E402
+from geyser.engine import Engine, _name_matches  # noqa: E402
 from geyser import win32  # noqa: E402
-from geyser.config import Rule, Settings  # noqa: E402
+from geyser.config import Rule, Settings, parse_filters  # noqa: E402
 from geyser.uia import Automation  # noqa: E402
 
 
@@ -51,7 +51,7 @@ def lookup_test():
 def engine_test():
     app = QCoreApplication.instance() or QCoreApplication(sys.argv)
     target = sys.argv[1] if len(sys.argv) > 1 else "claude"
-    settings = Settings(process_filter=target, rules=[Rule("Geyser smoke test label", True)], scan_interval=0.5)
+    settings = Settings(process_filter=[target], rules=[Rule("Geyser smoke test label", True)], scan_interval=0.5)
     engine = Engine(settings)
     states, snaps, logs = [], [], []
     engine.stateChanged.connect(lambda s, r: states.append((s, r)))
@@ -77,5 +77,17 @@ def engine_test():
     print("engine: OK")
 
 
+def matcher_test():
+    filters = Settings().process_filter
+    assert filters == ["nolvus", "yugen"], filters
+    for name in ("Yugen.Installer.exe", "NolvusDashBoard.exe"):
+        assert _name_matches(name, filters), name
+    assert not _name_matches("explorer.exe", filters)
+    assert _name_matches("explorer.exe", []), "no filters should match any process"
+    assert parse_filters("Nolvus, ,YUGEN") == ["nolvus", "yugen"]
+    print("matcher: OK")
+
+
+matcher_test()
 lookup_test()
 engine_test()
